@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U YouTube Style Banner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f0f;
+            color: #fff;
+            padding: 10px;
+        }
+
+        .playlist-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #1f1f1f;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .card-banner {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background-color: #2a2a2a;
+            display: block;
+        }
+
+        .card-title {
+            padding: 12px 15px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #f1f1f1;
+            line-height: 1.4;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 16px;
+            color: #aaa;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container" class="playlist-container">
+        <div class="loading">লোড হচ্ছে...</div>
+    </div>
+
+    <script>
+        const m3uUrl = "https://raw.githubusercontent.com/srhady/join_telegram_chennal-livesportsplay/refs/heads/main/latest_movies.m3u";
+        const container = document.getElementById("container");
+
+        async function fetchM3U() {
+            try {
+                const response = await fetch(m3uUrl);
+                const data = await response.text();
+                parseM3U(data);
+            } catch (error) {
+                container.innerHTML = `<div class="loading" style="color: red;">ফাইল লোড করতে সমস্যা হয়েছে!</div>`;
+            }
+        }
+
+        function parseM3U(data) {
+            const lines = data.split('\n');
+            let movies = [];
+            let currentMovie = {};
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+
+                if (line.startsWith("#EXTINF:")) {
+                    currentMovie = {};
+                    
+                    // নিখুঁতভাবে লোগো ইউআরএল খোঁজার জন্য আপডেট করা লজিক
+                    let logoMatch = line.match(/tvg-logo=["']([^"']+)["']/i);
+                    if (logoMatch && logoMatch[1]) {
+                        currentMovie.logo = logoMatch[1].trim();
+                    } else {
+                        currentMovie.logo = ""; // না থাকলে ফাঁকা থাকবে
+                    }
+
+                    // টাইটেল বের করা
+                    let commaIndex = line.lastIndexOf(',');
+                    currentMovie.title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : "Unknown Title";
+
+                } else if (line && !line.startsWith("#")) {
+                    currentMovie.link = line;
+                    
+                    // যদি লোগো পাওয়া যায় তবেই মুভি লিস্টে যোগ করবে অথবা সব মুভিই দেখাবে
+                    if (currentMovie.title) {
+                        movies.push(currentMovie);
+                    }
+                }
+            }
+
+            renderCards(movies);
+        }
+
+        function renderCards(movies) {
+            container.innerHTML = "";
+
+            if (movies.length === 0) {
+                container.innerHTML = `<div class="loading">কোনো মুভি পাওয়া যায়নি!</div>`;
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+
+            movies.forEach(movie => {
+                const card = document.createElement("div");
+                card.className = "card";
+
+                // আসল ছবির লিংক থাকলে তা দেখাবে, না থাকলে বা ফেইল করলে কেবল ডিফল্ট ছবি দেখাবে
+                let imgSrc = (movie.logo && movie.logo.startsWith("http")) ? movie.logo : 'https://via.placeholder.com/600x200?text=No+Image';
+
+                card.innerHTML = `
+                    <img src="${imgSrc}" class="card-banner" loading="lazy" 
+                         onerror="this.onerror=null; this.src='https://via.placeholder.com/600x200?text=Image+Load+Error';">
+                    <div class="card-title">${movie.title}</div>
+                `;
+
+                card.addEventListener("click", () => {
+                    let outputString = `${movie.link}, ${movie.logo}, ${movie.title}`;
+                    
+                    if (window.AppInventor) {
+                        window.AppInventor.setWebViewString(outputString);
+                    } else {
+                        alert(outputString);
+                    }
+                });
+
+                fragment.appendChild(card);
+            });
+
+            container.appendChild(fragment);
+        }
+
+        fetchM3U();
+    </script>
+</body>
+</html>
